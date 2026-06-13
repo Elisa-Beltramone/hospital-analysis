@@ -4,20 +4,20 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import joblib
-from sklearn.metrics import (
-    mean_absolute_error,
-    mean_squared_error
-)
 
 st.set_page_config(
     page_title="Hospital Control Room",
     layout="wide"
 )
 
+# =========================
 # MODEL
+# =========================
 model = joblib.load("xgb_demanda.pkl")
 
+# =========================
 # DATA
+# =========================
 @st.cache_data
 def load_model():
     df = pd.read_csv("df_model.csv", parse_dates=["fecha_hora"])
@@ -31,7 +31,9 @@ def load_raw():
 df_model = load_model()
 df_raw = load_raw()
 
+# =========================
 # SIDEBAR
+# =========================
 st.sidebar.title("Filtros")
 
 especialidad = st.sidebar.selectbox(
@@ -39,7 +41,9 @@ especialidad = st.sidebar.selectbox(
     ["Todas"] + sorted(df_raw["MEDICO"].dropna().unique())
 )
 
+# =========================
 # FILTER RAW
+# =========================
 df_raw_filt = df_raw.copy()
 
 if especialidad != "Todas":
@@ -49,7 +53,9 @@ if especialidad != "Todas":
 df_raw_filt["hora"] = df_raw_filt["fecha_hora"].dt.hour
 df_raw_filt["dia"] = df_raw_filt["fecha_hora"].dt.dayofweek
 
+# =========================
 # ALERT MODEL
+# =========================
 df_model = df_model.sort_values("fecha_hora").copy()
 
 df_model["rolling_mean"] = df_model["demanda"].rolling(24).mean()
@@ -63,13 +69,17 @@ df_model["alerta"] = df_model["zscore"] > 2
 
 df_plot = df_model.copy()
 
+# =========================
 # TABS
+# =========================
 tab1, tab2 = st.tabs([
     "📊 Operación",
     "🤖 Predicción",
 ])
 
+# =========================
 # TAB 1 - OPERACIÓN
+# =========================
 with tab1:
 
     # -------------------------
@@ -168,8 +178,12 @@ with tab1:
 
     st.dataframe(ct, use_container_width=True)
 
+# =========================
 # FEATURE ENGINEERING FUTURE
+# =========================
+# =========================
 # FEATURES (orden EXACTO del modelo)
+# =========================
 features = [
     "hora_sin","hora_cos",
     "dow_sin","dow_cos",
@@ -180,9 +194,10 @@ features = [
     "temperatura","humedad","lluvia"
 ]
 
+# =========================
 # FUTURE FEATURE BUILDER (PRODUCCIÓN)
-HORIZON = 24 * 7 
-def build_future_features(df_hist, steps=HORIZON):
+# =========================
+def build_future_features(df_hist, steps=24):
 
     df_hist = df_hist.sort_values("fecha_hora").copy()
 
@@ -231,88 +246,24 @@ def build_future_features(df_hist, steps=HORIZON):
         future_rows.append(row)
 
     return pd.DataFrame(future_rows)
-
-def recursive_forecast(df_hist, model, steps):
-    history = df_hist["demanda"].tolist()
-    preds = []
-
-    for i in range(steps):
-        temp_df = df_hist.copy()
-        temp_df.loc[len(temp_df)] = temp_df.iloc[-1]  # placeholder row
-
-        X = build_future_features(temp_df, steps=1).iloc[[0]][features]
-        yhat = model.predict(X)[0]
-
-        preds.append(yhat)
-        history.append(yhat)
-
-        # append prediction to history for next step
-        df_hist = pd.concat([
-            df_hist,
-            pd.DataFrame({"demanda": [yhat], "fecha_hora": [temp_df["fecha_hora"].iloc[-1] + pd.Timedelta(hours=1)]})
-        ], ignore_index=True)
-
-    return preds
-
+# =========================
 # TAB 2 - PREDICCIÓN
-# TAB 2 - PREDICCIÓN
+# =========================
 with tab2:
 
-    HORIZON = 24 * 7
+    st.subheader("🤖 Predicción hospitalaria (24h)")
 
-    st.subheader("🤖 Predicción hospitalaria (7 días)")
+    X_future = build_future_features(df_model, steps=24)
 
-    # --------------------------------
-    # SELECCIÓN FECHA Y HORA (SOLO 2025)
-    # --------------------------------
-    col_fecha, col_hora = st.columns(2)
-
-    min_date = pd.Timestamp("2025-01-01").date()
-    max_date = pd.Timestamp("2025-12-31").date()
-
-    selected_date = col_fecha.date_input(
-        "Fecha de inicio (solo 2025)",
-        value=min_date,
-        min_value=min_date,
-        max_value=max_date,
-        key="forecast_date"
-    )
-
-    selected_hour = col_hora.selectbox(
-        "Hora",
-        options=list(range(24)),
-        index=0,
-        key="forecast_hour"
-    )
-
-    forecast_start = pd.Timestamp(selected_date) + pd.Timedelta(hours=selected_hour)
-
-    # --------------------------------
-    # HISTÓRICO
-    # --------------------------------
-    df_hist = df_model[
-        df_model["fecha_hora"] <= forecast_start
-    ].copy()
-
-    if len(df_hist) < 168:
-        st.error("No hay suficiente histórico antes de la fecha seleccionada.")
-        st.stop()
-
-    # --------------------------------
-    # FEATURES FUTURAS
-    # --------------------------------
-    X_future = build_future_features(df_hist, steps=HORIZON)
+    # seguridad: orden de features EXACTO
     X_future = X_future[features]
 
     preds = model.predict(X_future)
 
-    # --------------------------------
-    # FECHAS FUTURAS
-    # --------------------------------
     future_dates = pd.date_range(
-        start=df_hist["fecha_hora"].iloc[-1] + pd.Timedelta(hours=1),
-        periods=HORIZON,
-        freq="h"
+        start=df_model["fecha_hora"].iloc[-1] + pd.Timedelta(hours=1),
+        periods=24,
+        freq="H"
     )
 
     pred_df = pd.DataFrame({
@@ -320,109 +271,28 @@ with tab2:
         "prediccion": preds
     })
 
-    # --------------------------------
-    # FORECAST HORARIO
-    # --------------------------------
-    st.markdown("### 📈 Forecast horario")
-
     fig = px.line(
         pred_df,
         x="fecha_hora",
         y="prediccion",
-        title="Forecast hospitalario - próximos 7 días"
+        title="Forecast demanda hospitalaria"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # --------------------------------
-    # AGREGACIÓN DIARIA
-    # --------------------------------
-    pred_df["fecha"] = pred_df["fecha_hora"].dt.date
-
-    daily = pred_df.groupby("fecha")["prediccion"].sum().reset_index()
-
-    st.subheader("📅 Demanda diaria esperada")
-
-    fig_daily = px.bar(
-        daily,
-        x="fecha",
-        y="prediccion",
-        text="prediccion"
-    )
-
-    fig_daily.update_traces(texttemplate="%{text:.0f}")
-
-    st.plotly_chart(fig_daily, use_container_width=True)
-    st.dataframe(daily)
-
-    # --------------------------------
-    # KPIs
-    # --------------------------------
+    # KPIs clínicos
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Próxima hora", round(float(preds[0]), 1))
-    col2.metric("Pico 7 días", round(float(preds.max()), 1))
-    col3.metric("Promedio 7 días", round(float(preds.mean()), 1))
+    col1.metric("Próxima hora", round(preds[0], 1))
+    col2.metric("Pico 24h", round(preds.max(), 1))
+    col3.metric("Promedio 24h", round(preds.mean(), 1))
 
-    # --------------------------------
-    # ALERTAS
-    # --------------------------------
-    umbral_rojo = df_model["demanda"].mean() + 2 * df_model["demanda"].std()
-    umbral_amarillo = df_model["demanda"].mean() + 1 * df_model["demanda"].std()
+    # alertas operativas
+    umbral = df_model["demanda"].mean() + 2 * df_model["demanda"].std()
 
-    if preds.max() > umbral_rojo:
-        st.error("🔴 Riesgo de saturación durante los próximos 7 días")
-
-    elif preds.max() > umbral_amarillo:
-        st.warning("🟡 Demanda elevada esperada durante los próximos 7 días")
-
+    if preds[0] > umbral:
+        st.error("🔴 Riesgo de saturación en la próxima hora")
+    elif preds[0] > df_model["demanda"].mean() + df_model["demanda"].std():
+        st.warning("🟡 Demanda elevada esperada")
     else:
-        st.success("🟢 Capacidad normal esperada")
-
-    # --------------------------------
-    # EVALUACIÓN (SOLO SI EXISTEN DATOS REALES)
-    # --------------------------------
-    st.subheader("📉 Evaluación del modelo")
-
-    real_df = df_model[
-        df_model["fecha_hora"].isin(pred_df["fecha_hora"])
-    ][["fecha_hora", "demanda"]]
-
-    compare_df = pred_df.merge(real_df, on="fecha_hora", how="inner")
-
-    if len(compare_df) > 0:
-
-        mae = mean_absolute_error(compare_df["demanda"], compare_df["prediccion"])
-        rmse = np.sqrt(mean_squared_error(compare_df["demanda"], compare_df["prediccion"]))
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("MAE", f"{mae:.2f}")
-        col2.metric("RMSE", f"{rmse:.2f}")
-
-        fig_compare = go.Figure()
-
-        fig_compare.add_trace(go.Scatter(
-            x=compare_df["fecha_hora"],
-            y=compare_df["demanda"],
-            name="Real",
-            line=dict(color="green", width=3)
-        ))
-
-        fig_compare.add_trace(go.Scatter(
-            x=compare_df["fecha_hora"],
-            y=compare_df["prediccion"],
-            name="Predicción",
-            line=dict(color="blue")
-        ))
-
-        fig_compare.update_layout(title="Predicción vs Real")
-
-        st.plotly_chart(fig_compare, use_container_width=True)
-
-        compare_df["error"] = compare_df["demanda"] - compare_df["prediccion"]
-        compare_df["error_abs"] = compare_df["error"].abs()
-
-        st.dataframe(compare_df)
-
-    else:
-        st.info("No hay datos reales para comparar en este período.")
+        st.success("🟢 Capacidad normal")
