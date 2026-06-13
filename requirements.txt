@@ -1,6 +1,6 @@
 streamlit
 joblib
-jupyter-notebook
+notebook
 plotly
 matplotlib
 scikit-learn
