@@ -6,3 +6,5 @@ matplotlib
 scikit-learn
 holidays
 xgboost
+pandas
+numpy
