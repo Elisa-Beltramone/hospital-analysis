@@ -7,7 +7,7 @@ Permite visualizar indicadores operativos, analizar datos históricos y predecir
 
 ## 🚀 Demo
 
-👉 https://comingsoon
+👉 https://comingsoon](https://hospital-infraestructura.streamlit.app/
 
 ---
 
