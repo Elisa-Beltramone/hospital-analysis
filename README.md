@@ -5,15 +5,15 @@ Permite visualizar indicadores operativos, analizar datos históricos y predecir
 
 ---
 
-## 🚀 Demo
+## Demo
 
-👉 https://hospital-infraestructura.streamlit.app/
+https://hospital-infraestructura.streamlit.app/
 
 ---
 
-## 📊 Funcionalidades
+## Funcionalidades
 
-### 📌 Panel Operativo
+### Panel Operativo
 - Distribución de **Obra Social**
 - Análisis de **género de pacientes**
 - Diagnóstico más frecuentes
@@ -22,26 +22,26 @@ Permite visualizar indicadores operativos, analizar datos históricos y predecir
 
 ---
 
-### 🤖 Predicción de demanda
+### Predicción de demanda
 - Forecast de demanda hospitalaria a **7 días (168 horas)**
 - Selección de fecha y hora de inicio
 - Visualización de:
   - Predicción horaria
   - Demanda diaria agregada
 
-### 📊 KPIs incluidos
+### KPIs incluidos
 - Próxima hora de demanda
 - Pico de los próximos 7 días
 - Promedio de demanda
 
-### 🚨 Sistema de alertas
+### Sistema de alertas
 - 🟢 Normal
 - 🟡 Demanda elevada
 - 🔴 Riesgo de saturación
 
 ---
 
-### 📉 Evaluación del modelo
+### Evaluación del modelo
 - Comparación entre predicción y valores reales
 - Métricas:
   - MAE (Error Absoluto Medio)
@@ -50,11 +50,11 @@ Permite visualizar indicadores operativos, analizar datos históricos y predecir
 
 ---
 
-## 🧠 Modelo de Machine Learning
+## Modelo de Machine Learning
 
 Modelo basado en **XGBoost**, entrenado con variables temporales y exógenas.
 
-### 🔧 Features utilizadas
+### Features utilizadas
 
 **Variables temporales:**
 - hora_sin, hora_cos  
